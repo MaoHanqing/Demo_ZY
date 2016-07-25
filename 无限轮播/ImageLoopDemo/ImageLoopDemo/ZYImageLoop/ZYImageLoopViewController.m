@@ -17,6 +17,7 @@
     NSInteger _perPage;
     NSMutableArray *_showViews;
     CGRect _showRect;
+    NSInteger showViewPages;
 }
 @end
 
@@ -30,7 +31,9 @@
         _showWidth=showRect.size.width;
         _showHeight=showRect.size.height;
         _showRect=showRect;
+        _imagesCount=images.count;
         _perPage=0;
+        _showViewType=threeShowViewPage;
     }
     return self;
 }
@@ -51,35 +54,66 @@
     // Do any additional setup after loading the view.
     
     _showViews =[[NSMutableArray alloc]init];
-    for (int i=0; i<3; i++) {
+    
+    showViewPages=(_showViewType==threeShowViewPage?3:_imagesCount+2);
+    
+    
+    for (int i=0; i<showViewPages; i++) {
         UIImageView *showView=[[UIImageView alloc]initWithFrame:CGRectMake(_showWidth*i, 0, _showWidth, _showHeight)];
         //图片取出值
-        _perPage=[self imagesIndexWithNumber:(i-1)];
+        _perPage=[self imagesIndexWithNumber:((i%_imagesCount)-1)];
         //设置图片
         [self showViewSetImageWith:showView imageIndex:_perPage];
-        
         [self.view addSubview:showView];
         [_showViews addObject:showView];
     }
+    //偏移到中间
+    ((UIScrollView *)self.view).contentOffset=CGPointMake(_showWidth, 0);
     
 }
 -(void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView{
+#warning  代理方法不执行
     //判断左划右滑
     NSInteger pageAdd=(scrollView.contentOffset.x>_showWidth) ? 1 : -1 ;
     
-    _perPage =[self imagesIndexWithNumber:_perPage]+pageAdd;
+   
+    switch (_showViewType) {
+        case threeShowViewPage:{
+            
+          
+             _perPage =[self imagesIndexWithNumber:_perPage]+pageAdd;
+            __block NSInteger page;
+            __weak typeof(self) weakSelf;
+            //重置ShowView Image
+            [_images enumerateObjectsUsingBlock:^(UIImageView*  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                //图片取出值
+                page= [weakSelf imagesIndexWithNumber:(_perPage+idx)];
+                //设置图片
+                [weakSelf showViewSetImageWith:obj imageIndex:page];
+            }];
+            
+            //减速完毕替换图片
+            [scrollView setContentOffset:CGPointMake(_showWidth, 0) animated:NO];
+            
+            break;
+        }
+        case mostShowViewPage:{
+        
+            if (_perPage==0 &&_perPage==(showViewPages-1)) {
+                
+                _perPage =[self imagesIndexWithNumber:(_perPage+pageAdd*2)];
+                
+                //减速完毕替换图片
+                [scrollView setContentOffset:CGPointMake(_perPage *_showWidth, 0) animated:NO];
+            }
+            
+            break;
+        }
+        default:
+            break;
+    }
     
-    __block NSInteger page;
-    __weak typeof(self) weakSelf;
-    //重置ShowView Image
-    [_images enumerateObjectsUsingBlock:^(UIImageView*  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-        //图片取出值
-        page= [weakSelf imagesIndexWithNumber:(_perPage+idx)];
-        //设置图片
-        [weakSelf showViewSetImageWith:obj imageIndex:page];
-    }];
-    //减速完毕替换图片
-    [scrollView setContentOffset:CGPointMake(_showWidth, 0) animated:NO];
+   
 }
 
 -(void)showViewSetImageWith:(UIImageView*)showView imageIndex:(NSInteger)index{
